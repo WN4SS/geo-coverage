@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "area_of_interest"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -78.865971,
+              42.891235
+            ],
+            [
+              -78.871292,
+              42.895136
+            ],
+            [
+              -78.868546,
+              42.903756
+            ],
+            [
+              -78.845203,
+              42.903693
+            ],
+            [
+              -78.845546,
+              42.899352
+            ],
+            [
+              -78.865971,
+              42.891235
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "real_antenna",
+        "azimuth": 44.5,
+        "frequency": 3560,
+        "Ptx": 47,
+        "Gtx": 19.5,
+        "height": 30
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.865033,
+          42.900776
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "real_antenna",
+        "azimuth": 77.5,
+        "frequency": 3640,
+        "Ptx": 47,
+        "Gtx": 19.5,
+        "height": 30
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.865034,
+          42.900788
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "real_antenna",
+        "azimuth": 110.5,
+        "frequency": 3560,
+        "Ptx": 47,
+        "Gtx": 19.5,
+        "height": 30
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.865032,
+          42.900802
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "type": "real_antenna",
+        "azimuth": 143.5,
+        "frequency": 3640,
+        "Ptx": 47,
+        "Gtx": 19.5,
+        "height": 30
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -78.865033,
+          42.900817
+        ]
+      }
+    }
+  ]
+}
