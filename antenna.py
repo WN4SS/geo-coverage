@@ -33,15 +33,15 @@ def load_pattern(path):
     return pattern;
 
 class Antenna:
-    def __init__(self, f_mhz, tx_power, pos, height, azimuth, downtilt, pattern_h, pattern_v):
-        self.f_mhz = f_mhz          # Frequency at which the antenna transmits in MHz
-        self.tx_power = tx_power    # Tx power in dBm
-        self.pos = pos              # Geographical coordinates at which the antenna is located
-        self.height = height        # Height at which the antenna is mounted
-        self.azimuth = azimuth      # Azimuth at which the antenna is orientated in degrees
-        self.downtilt = downtilt    # Downtilt of the antenna in degrees
-        self.pattern_h = pattern_h  # Horizontal antenna gain pattern
-        self.pattern_v = pattern_v  # Vertical antenna gain pattern
+    def __init__(self, f_mhz, tx_power, pos, height_rel, azimuth, downtilt, pattern_h, pattern_v):
+        self.f_mhz = f_mhz            # Frequency at which the antenna transmits in MHz
+        self.tx_power = tx_power      # Tx power in dBm
+        self.pos = pos                # Geographical coordinates at which the antenna is located
+        self.height_rel = height_rel  # Height at which the antenna is mounted relative to base elevation
+        self.azimuth = azimuth        # Azimuth at which the antenna is orientated in degrees
+        self.downtilt = downtilt      # Downtilt of the antenna in degrees
+        self.pattern_h = pattern_h    # Horizontal antenna gain pattern
+        self.pattern_v = pattern_v    # Vertical antenna gain pattern
 
     def distance(self, rx_pos):
         """
@@ -56,13 +56,13 @@ class Antenna:
         R = 6371000
         return R * c
 
-    def power(self, rx_pos, rx_height):
+    def power(self, tx_height, rx_pos, rx_height):
         """
         Calculate the power that would be directed towards the given Rx
         """
         # Calculate the azimuth and downtilt between the antenna and the Rx
         azimuth = calc_azimuth(self.pos, rx_pos)
-        downtilt = calc_downtilt(self.distance(rx_pos), self.pos, self.height, rx_pos, rx_height)
+        downtilt = calc_downtilt(self.distance(rx_pos), self.pos, tx_height, rx_pos, rx_height)
 
         # Translate the supplied azimuth to be in reference to the antenna azimuth
         azimuth_ref = azimuth - self.azimuth
