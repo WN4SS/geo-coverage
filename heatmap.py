@@ -18,14 +18,11 @@ def get_coverage_area(gdf):
 def get_antennas(gdf, lpcs, pattern_h, pattern_v):
     antennas = []
     for i in range(1, len(gdf)):
-        height = gdf.iloc[i]['height']
-        pos = gdf.iloc[i]['geometry']
-        elevation = surface_profile.get_elevation(lpcs, pos, proj=False)
         antenna = Antenna(
             gdf.iloc[i]['frequency'],
             gdf.iloc[i]['Ptx'],
-            pos,
-            height + elevation,
+            gdf.iloc[i]['geometry'],
+            gdf.iloc[i]['height'],
             gdf.iloc[i]['azimuth'], 1,
             pattern_h, pattern_v
         )
@@ -62,7 +59,6 @@ def get_rx_points(coverage_area, granularity):
     ne_proj = get_projection(ne_bound)
     x_coords = np.arange(sw_proj.x, ne_proj.x, granularity)
     y_coords = np.arange(sw_proj.y, ne_proj.y, granularity)
-
     rx_points = []
     for x in x_coords:
         for y in y_coords:
@@ -71,9 +67,9 @@ def get_rx_points(coverage_area, granularity):
                 rx_points.append(point)
     return rx_points
 
-def get_profiles(lpcs, rx_points, pos, height, granularity):
+def get_profiles(lpcs, rx_points, pos, granularity):
     return list(map(
-        lambda point: surface_profile.make_profile(lpcs, pos, height, point, granularity),
+        lambda point: surface_profile.make_profile(lpcs, pos, point, granularity),
         rx_points
     ))
 
@@ -144,7 +140,6 @@ def plot_coverage_map(coverage_map, coverage_area, antennas, title):
 print('--- Opening scenario...')
 gdf = gpd.read_file('scenarios/fruit-belt-optimized.geojson')
 
-print('--- Retrieving LiDAR point cloud data...')
 lpcs = surface_profile.load_all_lpcs(gdf, 'lidar')
 
 print('--- Loading antenna pattern...')
@@ -158,16 +153,26 @@ print('--- Generating coverage points...')
 coverage_area = get_coverage_area(gdf)
 rx_points = get_rx_points(coverage_area, 9)
 
+"""
+print('--- Loading surface profiles...')
+import pickle
+with open('profiles/9m-2m-fruit-belt.pkl', 'rb') as file:
+    profiles = pickle.load(file)
+"""
+
 print('--- Computing surface profiles...')
-profiles = get_profiles(lpcs, rx_points, antennas[0].pos, antennas[0].height, 2)
+profiles = get_profiles(lpcs, rx_points, antennas[0].pos, 2)
 
 print('--- Storing computed surface profiles...')
 import pickle
-with open('9m-2m-fruit-belt.pkl', 'wb') as file:
+with open('9m-2m-fruit-belt-2.pkl', 'wb') as file:
     pickle.dump(profiles, file)
 
+"""
 print('--- Calculating estimated coverage map...')
+importlib.reload(path_loss)
 coverage_map = combined_coverage_map(antennas, rx_points, profiles)
 
 print('--- Plotting estimated coverage map...')
 plot_coverage_map(coverage_map, coverage_area, antennas, 'Fruit Belt: 9m granularity, 2m profile granularity')
+"""
