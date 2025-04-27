@@ -79,22 +79,22 @@ def download_scans(urls, output_dir):
     """
     Download the LiDAR scan from each URL in the list
     """
-    print('--- Retrieving LiDAR scans from the USGS National Map database ---')
+    print('--- Retrieving LiDAR scans from the USGS National Map database...')
     for i, url in enumerate(urls):
-        print(f'Downloading file {i + 1} of {len(urls)}...')
+        print(f'\tDownloading file {i + 1} of {len(urls)}...')
         download_scan(url, output_dir)
-    print('Done.')
+    if len(urls) == 0:
+        print('\tAll required scans are already present.')
 
 def parse_lpcs(laz_paths):
     """
     Load each .laz file and store the contents in a LidarPointCloud object
     """
-    print('--- Loading LiDAR scans into memory ---')
+    print('--- Loading LiDAR scans into memory...')
     lpcs = []
     for index, path in enumerate(laz_paths):
-        print(f'Loading file {index + 1} of {len(laz_paths)}...')
+        print(f'\tLoading file {index + 1} of {len(laz_paths)}...')
         lpcs.append(LidarPointCloud(path))
-    print('Done.')
     return lpcs
 
 def load_all_lpcs(gdf, output_dir):
@@ -127,7 +127,7 @@ def get_elevation(lpcs, pos, proj=True):
         if lpc.bounding_poly.buffer(10).intersects(Point(x_pos, y_pos)):
             return lpc.get_elevation(x_pos, y_pos)
 
-def make_profile(lpcs, tx_pos, tx_height, rx_pos, granularity):
+def make_profile(lpcs, tx_pos, rx_pos, granularity):
     """
     Generate a surface profile from Tx to Rx with LPC data
     """
@@ -147,6 +147,4 @@ def make_profile(lpcs, tx_pos, tx_height, rx_pos, granularity):
         lambda point: [point[2], get_elevation(lpcs, Point(point[0], point[1]))],
         list(zip(x_coords[1:], y_coords[1:], distances[1:]))
     ))
-    profile.insert(0, [0, tx_height])
-    profile.append([rx_distance, get_elevation(lpcs, Point(rx_x, rx_y))])
     return profile
