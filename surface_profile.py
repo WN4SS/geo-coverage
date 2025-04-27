@@ -113,10 +113,11 @@ def load_all_lpcs(gdf, output_dir):
     download_scans(missing_urls, output_dir)
     return parse_lpcs(laz_paths)
 
-def get_elevation(lpcs, x, y, proj=True):
+def get_elevation(lpcs, pos, proj=True):
     """
     Get the elevation at the latitude/longitude pair from the appropriate LPC
     """
+    x, y = pos.x, pos.y
     if not proj:
         transformer = lpcs[0].transformer
         x_pos, y_pos = transformer.transform(x, y)
@@ -125,23 +126,27 @@ def get_elevation(lpcs, x, y, proj=True):
     for lpc in lpcs:
         if lpc.bounding_poly.buffer(10).intersects(Point(x_pos, y_pos)):
             return lpc.get_elevation(x_pos, y_pos)
-    print('WARNING: This point is not defined in any LPC file, using 1')
-    return 1
 
-def make_surface_profile(lpcs, tx_lat, tx_lon, rx_lat, rx_lon, granularity):
+def make_profile(lpcs, tx_pos, tx_height, rx_pos, granularity):
     """
     Generate a surface profile from Tx to Rx with LPC data
     """
     transformer = lpcs[0].transformer  # Assuming all LPCs are using the same projection
+    tx_lon, tx_lat = tx_pos.x, tx_pos.y
+    rx_lon, rx_lat = rx_pos.x, rx_pos.y
     tx_x, tx_y = transformer.transform(tx_lon, tx_lat)
     rx_x, rx_y = transformer.transform(rx_lon, rx_lat)
     dx = abs(tx_x - rx_x)
     dy = abs(tx_y - rx_y)
-    distance = math.sqrt(dx ** 2 + dy ** 2)
-    num_points = int(distance // granularity)
+    rx_distance = math.sqrt(dx ** 2 + dy ** 2) / 1000
+    num_points = int(rx_distance // (granularity / 1000))
     x_coords = np.linspace(tx_x, rx_x, num=num_points)
     y_coords = np.linspace(tx_y, rx_y, num=num_points)
-    return list(map(
-        lambda point: get_elevation(lpcs, point[0], point[1]),
-        list(zip(x_coords, y_coords))
+    distances = np.linspace(0, rx_distance, num=num_points)
+    profile = list(map(
+        lambda point: [point[2], get_elevation(lpcs, Point(point[0], point[1]))],
+        list(zip(x_coords[1:], y_coords[1:], distances[1:]))
     ))
+    profile.insert(0, [0, tx_height])
+    profile.append([rx_distance, get_elevation(lpcs, Point(rx_x, rx_y))])
+    return profile

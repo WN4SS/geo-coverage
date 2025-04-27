@@ -1,4 +1,4 @@
-import itertools
+import random
 import geopandas as gpd
 import antenna
 import surface_profile
@@ -6,77 +6,83 @@ import path_loss
 
 from shapely.geometry import Point
 from antenna import Antenna
+from path_loss import FreeSpaceModel
 
-# Define the lat/lon for each BS
-bs_positions = [
-    Point(-78.849237, 42.902081),
-    Point(-78.864652, 42.901791),
-    Point(-78.857450, 42.899530)
-]
-
-# Define a list of antenna azimuths for all BS
-antenna_azimuths = [[44, 117], [81, 57], [210, 19]]
-
-# Load pattern files
+# Load antenna patterns
 pattern_h = antenna.load_pattern('patterns/horizontal.pat')
 pattern_v = antenna.load_pattern('patterns/vertical.pat')
 
-# Load LiDAR point clouds and create ITM model
+# Load scenario GeoJSON
 gdf = gpd.read_file('scenarios/fruit-belt.geojson')
-lpcs = surface_profile.load_all_lpcs(gdf, 'lidar')
-model = path_loss.ItmModel(lpcs, 90)
 
-# Create all antennas leaving the channel (f_mhz) unset
-antennas = []
-for i, pos in enumerate(bs_positions):
-    for azimuth in antenna_azimuths[i]:
-        antennas.append(Antenna(0, 30, pos, 30, azimuth, 1, pattern_h, pattern_v, model))
+# Create the path loss model
+model = FreeSpaceModel()
 
-# Define a list of coverage points
-coverage_points = [
-    Point(-78.866630, 42.902516),
-    Point(-78.861736, 42.897587),
-    Point(-78.850725, 42.899603),
-    Point(-78.861201, 42.897923),
-    Point(-78.856651, 42.902096),
-    Point(-78.852102, 42.899211),
-    Point(-78.855045, 42.898287),
-    Point(-78.852254, 42.902600),
-    Point(-78.857607, 42.900415),
-    Point(-78.865865, 42.901732)
-]
+def gen_random_points(num):
+    """
+    Generate a list of random points within the coverage area
+    """
+    bounding_poly = gdf.geometry.iloc[0]
+    lon_min, lat_min, lon_max, lat_max = bounding_poly.bounds
+    points = []
+    for _ in range(num):
+        while True:
+            lat = lat_min + random.random() * (lat_max - lat_min)
+            lon = lon_min + random.random() * (lon_max - lon_min)
+            point = Point(lon, lat)
+            if bounding_poly.contains(point):
+                points.append(point)
+                break
+    return points
 
-# Define a list of channels/frequencies
-channels = [3560, 3590]
+class BaseStation:
+    def __init__(self, num_antennas, channels):
+        """
+        Create a base station with a specified number of antennas, and channels
+        """
+        self.channels = channels
+        self.antennas = []
+        pos = gen_random_points(1)[0]
+        for _ in range(num_antennas):
+            azimuth = random.random() * 360
+            self.antennas.append(Antenna(0, 30, pos, 30, azimuth, 1, pattern_h, pattern_v, model))
 
-# Get index permutations (antenna, channel, point) for PL and (antenna, point) for gain
-path_loss_permutations = list(itertools.product(
-    list(range(len(antennas))),
-    list(range(len(channels))),
-    list(range(len(coverage_points)))
-))
-gain_permutations = list(itertools.product(
-    list(range(len(antennas))),
-    list(range(len(coverage_points)))
-))
+    def get_rsrps(self, points):
+        """
+        Estimate the RSRP for every permutation of channel, antenna, and coverage point
+        """
+        antenna_rsrps = []
+        for antenna in self.antennas:
+            channel_rsrps = []
+            for channel in self.channels:
+                point_rsrps = []
+                for point in points:
+                    antenna.f_mhz = channel
+                    point_rsrps.append(antenna.rsrp(point, 1))
+                channel_rsrps.append(point_rsrps)
+            antenna_rsrps.append(channel_rsrps)
+        return antenna_rsrps
 
-# Generate path loss CSV
-"""
-print('Antenna index, Channel index, Point index, Path loss dB')
-for config in path_loss_permutations:
-    antenna = antennas[config[0]]
-    channel = channels[config[1]]
-    point = coverage_points[config[2]]
-    antenna.f_mhz = channel
-    path_loss = antenna.pathloss(point, 1)
-    print(config[0], config[1], config[2], path_loss, sep=', ')
-"""
+base_stations = []
+channels = [3600, 3700]
+points = gen_random_points(500)
+for _ in range(6):
+    base_stations.append(BaseStation(2, channels))
 
-# Generate gain CSV
-print('Antenna index, Point index, Gain dB')
-for config in gain_permutations:
-    antenna = antennas[config[0]]
-    point = coverage_points[config[1]]
-    gain = antenna.power(point, 1) - antenna.tx_power
-    print(config[0], config[1], gain, sep=', ')
-    
+print('BS Index, Antenna Index, Channel Index, Lat, Lon, RSRP')
+for bs_index, bs in enumerate(base_stations):
+    bs_rsrps = bs.get_rsrps(points)
+    for ant_index, ant_rsrps in enumerate(bs_rsrps):
+        for chan_index, chan_rsrps in enumerate(ant_rsrps):
+            for point_index, rsrp in enumerate(chan_rsrps):
+                lat = points[point_index].y
+                lon = points[point_index].x
+                print(bs_index, ant_index, chan_index, lat, lon, rsrp, sep=', ')
+
+print('BS Index, Antenna Index, Lat, Lon, Azimuth')
+for bs_index, bs in enumerate(base_stations):
+    for ant_index, antenna in enumerate(bs.antennas):
+        lat = antenna.pos.y
+        lon = antenna.pos.x
+        azimuth = antenna.azimuth
+        print(bs_index, ant_index, lat, lon, azimuth, sep=', ')

@@ -42,7 +42,7 @@
       "type": "Feature",
       "properties": {
         "type": "real_antenna",
-        "azimuth": 44.5,
+        "azimuth": 59.5,
         "frequency": 3560,
         "Ptx": 47,
         "Gtx": 19.5,
@@ -60,7 +60,7 @@
       "type": "Feature",
       "properties": {
         "type": "real_antenna",
-        "azimuth": 77.5,
+        "azimuth": 92.5,
         "frequency": 3640,
         "Ptx": 47,
         "Gtx": 19.5,
@@ -78,7 +78,7 @@
       "type": "Feature",
       "properties": {
         "type": "real_antenna",
-        "azimuth": 110.5,
+        "azimuth": 125.5,
         "frequency": 3560,
         "Ptx": 47,
         "Gtx": 19.5,
@@ -96,7 +96,7 @@
       "type": "Feature",
       "properties": {
         "type": "real_antenna",
-        "azimuth": 143.5,
+        "azimuth": 170.5,
         "frequency": 3640,
         "Ptx": 47,
         "Gtx": 19.5,
