@@ -7,7 +7,7 @@ def tx_visual_horizon(profile, h_ts, d_p):
     Calculate the transmitter visual horizon
     """
     s_tm = None
-    for sample in profile[2:-2]:
+    for sample in profile[1:-1]:
         d_i = sample[0]
         h_i = sample[1]
         s = (h_i - h_ts + 500 * c_e * d_i * (d_p - d_i)) / d_i
@@ -20,7 +20,7 @@ def rx_visual_horizon(profile, h_rs, d_p):
     Calculate the receive visual horizon
     """
     s_rm = None
-    for sample in profile[2:-2]:
+    for sample in profile[1:-1]:
         d_i = sample[0]
         h_i = sample[1]
         s = (h_i - h_rs + 500 * c_e * d_i * (d_p - d_i)) / (d_p - d_i)
@@ -39,7 +39,7 @@ def ked_param_los(profile, wavelength, h_ts, h_rs, d_p):
     Calculate the KED approximation parameter for the LOS case
     """
     v_max = None
-    for sample in profile[2:-2]:
+    for sample in profile[1:-1]:
         d_i = sample[0]
         h_i = sample[1]
         a = h_i + 500 * c_e * d_i * (d_p - d_i)
@@ -99,9 +99,9 @@ def free_space_loss(distance, f_mhz):
    
 def rsrp(antenna, rx_pos, profile):
     """
-    Estimate path loss from an antenna give Rx position, and path profile
+    Estimate path loss from an antenna given Rx position, and path profile
     """
-    rx_height = profile[len(profile) - 1][1]
+    rx_height = profile[len(profile) - 1][1] + antenna.height_rel
     power = antenna.power(rx_pos, rx_height)
     lb = bullington_loss(profile, antenna.f_mhz)
     rx_distance = profile[len(profile) - 1][0] * 1000
