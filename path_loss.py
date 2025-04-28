@@ -78,7 +78,7 @@ def bullington_loss(profile, tx_height_rel, rx_height_rel, f_mhz):
     """
     if len(profile) < 3:
         return 0
-    wavelength = 1 / (1E6 * f_mhz) 
+    wavelength = 3E8 / (1E6 * f_mhz) 
     d_p = profile[len(profile) - 1][0]
     h_ts = profile[0][1] + tx_height_rel
     h_rs = profile[len(profile) - 1][1] + rx_height_rel
@@ -95,14 +95,19 @@ def free_space_loss(distance, f_mhz):
     """
     Calculate the free space path loss over the given distance
     """
-    return 20 * math.log10(distance) + 20 * math.log10(f_mhz * 1E6) - 147.55 
+    return 20 * math.log10(4 * math.pi * distance * ((f_mhz * 1E6) / 3E8))
    
 def rsrp(antenna, rx_pos, profile):
     """
     Estimate path loss from an antenna given Rx position, and path profile
     """
-    rx_height = profile[len(profile) - 1][1] + antenna.height_rel
-    power = antenna.power(rx_pos, rx_height)
-    lb = bullington_loss(profile, antenna.f_mhz)
-    rx_distance = profile[len(profile) - 1][0] * 1000
-    return power - max(lb, free_space_loss(rx_distance, antenna.f_mhz))
+    if len(profile) > 1:
+        tx_height = profile[0][1] + antenna.height_rel
+        rx_height = profile[len(profile) - 1][1]
+        power = antenna.power(tx_height, rx_pos, rx_height)
+        rx_distance = profile[len(profile) - 1][0] * 1000
+        lb = bullington_loss(profile, antenna.height_rel, 0, antenna.f_mhz)
+        lf = free_space_loss(rx_distance, antenna.f_mhz)
+        return power - (lb + lf)
+    else:
+        return antenna.tx_power
