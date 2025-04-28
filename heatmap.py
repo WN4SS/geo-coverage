@@ -1,5 +1,7 @@
 import antenna
 import math
+import multiprocessing
+import itertools
 import numpy as np
 import geopandas as gpd
 import matplotlib
@@ -15,7 +17,7 @@ from pyproj import Transformer
 def get_coverage_area(gdf):
     return gdf.iloc[0]['geometry']
 
-def get_antennas(gdf, lpcs, pattern_h, pattern_v):
+def get_antennas(gdf, pattern_h, pattern_v):
     antennas = []
     for i in range(1, len(gdf)):
         antenna = Antenna(
@@ -73,6 +75,13 @@ def get_profiles(lpcs, rx_points, pos, granularity):
         rx_points
     ))
 
+def get_profiles_multicore(num_cores, lpcs, rx_points, pos, granularity):
+    rx_points_chunked = np.array_split(rx_points, num_cores)
+    arglist = map(lambda chunk: [lpcs, chunk, pos, granularity], rx_points_chunked)
+    with multiprocessing.Pool(processes=num_cores) as pool:
+        segments = pool.starmap(get_profiles, arglist)
+    return list(itertools.chain.from_iterable(segments))
+
 def get_coverage_map(antenna, rx_points, profiles):
     rsrps = []
     for point, profile in zip(rx_points, profiles):
@@ -120,7 +129,7 @@ def plot_coverage_map(coverage_map, coverage_area, antennas, title):
     
     # Plot sampled points
     colormap = matplotlib.cm.RdYlGn
-    norm = matplotlib.colors.Normalize(vmin=-100, vmax=-70)
+    norm = matplotlib.colors.Normalize(vmin=-120, vmax=-80)
     sm = matplotlib.cm.ScalarMappable(norm=norm, cmap=colormap)
     plt.colorbar(sm, ax=ax, label='RSRP (dBm)')
     for sample in coverage_map:
@@ -138,16 +147,14 @@ def plot_coverage_map(coverage_map, coverage_area, antennas, title):
     plt.show()
 
 print('--- Opening scenario...')
-gdf = gpd.read_file('scenarios/fruit-belt-optimized.geojson')
-
-lpcs = surface_profile.load_all_lpcs(gdf, 'lidar')
+gdf = gpd.read_file('scenarios/fruit-belt.geojson')
 
 print('--- Loading antenna pattern...')
 pattern_h = antenna.load_pattern('patterns/horizontal.pat')
 pattern_v = antenna.load_pattern('patterns/vertical.pat')
 
 print('--- Configuring antennas...')
-antennas = get_antennas(gdf, lpcs, pattern_h, pattern_v)
+antennas = get_antennas(gdf, pattern_h, pattern_v)
 
 print('--- Generating coverage points...')
 coverage_area = get_coverage_area(gdf)
@@ -156,16 +163,17 @@ rx_points = get_rx_points(coverage_area, 9)
 """
 print('--- Loading surface profiles...')
 import pickle
-with open('profiles/9m-2m-fruit-belt.pkl', 'rb') as file:
+with open('profiles/f.pkl', 'rb') as file:
     profiles = pickle.load(file)
 """
 
 print('--- Computing surface profiles...')
-profiles = get_profiles(lpcs, rx_points, antennas[0].pos, 2)
+lpcs = surface_profile.load_all_lpcs(gdf, 'lidar')
+profiles = get_profiles_multicore(64, lpcs, rx_points, antennas[0].pos, 2)
 
 print('--- Storing computed surface profiles...')
 import pickle
-with open('9m-2m-fruit-belt-2.pkl', 'wb') as file:
+with open('can.pkl', 'wb') as file:
     pickle.dump(profiles, file)
 
 """
