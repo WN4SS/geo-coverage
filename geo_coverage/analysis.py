@@ -107,7 +107,7 @@ def combined_coverage_map(antennas, rx_points, profiles):
         best_rsrps.append(best_rsrp)
     return best_rsrps
 
-def run_analysis(scenario, pattern, granularity, profiles=None, prof_granularity=2, num_cores=1):
+def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1):
     """
     Runs a coverage analysis with the given parameters, returning a coverage map
     """
@@ -119,7 +119,7 @@ def run_analysis(scenario, pattern, granularity, profiles=None, prof_granularity
     print('--- Generating coverage points...')
     get_rx_points(gdf.iloc[0]['geometry'], granularity)
     profiles_path = os.path.join('profiles' 'profiles-' + scenario + '.pkl')
-    if profiles == None:
+    if not os.path.exists(profiles_path):
         os.makedirs('lidar')
         lpcs = load_all_lpcs(gdf, 'lidar')
         print('--- Computing surface profiles...')
