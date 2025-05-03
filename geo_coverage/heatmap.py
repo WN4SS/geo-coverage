@@ -1,21 +1,11 @@
-import antenna
+from .analysis import get_projection
+
+from shapely.geometry import Point
+
 import math
-import multiprocessing
-import itertools
-import pickle
-import numpy as np
-import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
 import contextily as ctx
-import surface_profile
-import pathloss
-
-from shapely.geometry import Point
-from antenna import Antenna
-from pyproj import Transformer
-
-
 
 def plot_antenna(antenna, ax):
     proj = get_projection(antenna.pos)
@@ -42,7 +32,9 @@ def get_coverage_bounds(coverage_area):
     return [Point(sw_bound_lon, sw_bound_lat), Point(ne_bound_lon, ne_bound_lat)]
 
 def plot_coverage_map(coverage_map, coverage_area, antennas, title):
-    # Insert basemap into the plot
+    """
+    Plot a coverage map as a heatmap showing antenna positions overlayed an an OSM tile
+    """
     sw_bound, ne_bound = get_coverage_bounds(coverage_area)
     sw_proj = get_projection(sw_bound)
     ne_proj = get_projection(ne_bound)
@@ -51,63 +43,23 @@ def plot_coverage_map(coverage_map, coverage_area, antennas, title):
     ax.set_ylim(sw_proj.y - 100, ne_proj.y + 500)
     ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik)
 
-    # Plot coverage area bounding box
     area_gdf = gpd.GeoDataFrame(geometry=[coverage_area], crs='EPSG:4326')
     area_gdf = area_gdf.to_crs('EPSG:3857')
     area_gdf.plot(ax=ax, edgecolor='black', linewidth=2, facecolor='none')
     
-    # Plot sampled points
     colormap = matplotlib.cm.RdYlGn
     norm = matplotlib.colors.Normalize(vmin=-120, vmax=-80)
     sm = matplotlib.cm.ScalarMappable(norm=norm, cmap=colormap)
     plt.colorbar(sm, ax=ax, label='RSRP (dBm)')
-    points = list(map(lambda point: gpd.GeoDataFrame(geometry=[point[0]], crs='EPSG:4326').to_crs('EPSG:3857').geometry,
-                      coverage_map))
+    points = list(map(
+        lambda pt: gpd.GeoDataFrame(geometry=[pt[0]], crs='EPSG:4326').to_crs('EPSG:3857').geometry,
+        coverage_map)
+    )
     colors = list(map(lambda point: colormap(norm(point[1])), coverage_map))
     x = [point.x for point in points]
     y = [point.y for point in points]
-    print('plotting')
-    print(len(x), len(y))
     ax.scatter(x, y, rasterized=True, c=colors, marker='s', s=40, alpha=0.5)
-
-    # Plot antennas
     for antenna in antennas:
         plot_antenna(antenna, ax)
-
-    ax.set_axis_off()
     plt.title(title)
     plt.savefig('test.png')
-
-print('--- Opening scenario...')
-gdf = gpd.read_file('scenarios/fruit-belt.geojson')
-
-print('--- Loading antenna pattern...')
-pattern_h = antenna.load_pattern('patterns/horizontal.pat')
-pattern_v = antenna.load_pattern('patterns/vertical.pat')
-
-print('--- Configuring antennas...')
-antennas = get_antennas(gdf, pattern_h, pattern_v)
-
-print('--- Generating coverage points...')
-coverage_area = get_coverage_area(gdf)
-rx_points = get_rx_points(coverage_area, 9)
-
-print('--- Loading surface profiles...')
-with open('profiles/9m-2m-fruit-belt.pkl', 'rb') as file:
-    profiles = pickle.load(file)
-
-"""
-lpcs = surface_profile.load_all_lpcs(gdf, 'lidar')
-print('--- Computing surface profiles...')
-profiles = get_profiles_multicore(64, lpcs, rx_points, antennas[0].pos, 2)
-
-print('--- Storing computed surface profiles...')
-with open('9m-2m-fruit-belt.pkl', 'wb') as file:
-    pickle.dump(profiles, file)
-"""
-
-print('--- Calculating estimated coverage map...')
-coverage_map = combined_coverage_map(antennas, rx_points, profiles)
-
-print('--- Plotting estimated coverage map...')
-plot_coverage_map(coverage_map, coverage_area, antennas, 'Canandaigua: 9m granularity, 2m profile granularity')
