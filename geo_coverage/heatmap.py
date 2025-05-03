@@ -62,4 +62,4 @@ def plot_coverage_map(coverage_map, coverage_area, antennas, title):
     for antenna in antennas:
         plot_antenna(antenna, ax)
     plt.title(title)
-    plt.savefig('test.png')
+    plt.savefig(title + '.png')
