@@ -1,6 +1,5 @@
 import math
 import csv
-import path_loss
 
 def calc_azimuth(tx_pos, rx_pos):
     """
