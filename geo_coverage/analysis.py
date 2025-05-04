@@ -101,8 +101,8 @@ def get_coverage_map(antenna, rx_points, profiles):
     """
     rsrps = []
     for point, profile in zip(rx_points, profiles):
-        rsrp = rsrp(antenna, point, profile)
-        rsrps.append([point, rsrp])
+        point_rsrp = rsrp(antenna, point, profile)
+        rsrps.append([point, point_rsrp])
     return rsrps
 
 def combined_coverage_map(antennas, rx_points, profiles):
