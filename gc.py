@@ -18,7 +18,6 @@ prof_granularity = input.profile_granularity
 num_cores = input.cores
 map, antennas, gdf = run_analysis(scenario, pattern, granularity, prof_granularity, num_cores)
 
-output_path = scenario + '.png'
-print('--- Plotting heatmap to {output_path}...')
-plot_coverage_map(map, gdf.iloc[0]['geometry'], antennas, output_path)
+print('--- Plotting heatmap...')
+plot_coverage_map(map, gdf.iloc[0]['geometry'], antennas, scenario)
 print('--- Done.')
