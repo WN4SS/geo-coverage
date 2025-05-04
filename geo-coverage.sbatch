@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-# These should be customized based on your permissions
+# These can be customized based on your permissions
 #SBATCH --cluster=ub-hpc
 #SBATCH --partition=general-compute
 #SBATCH --qos=general-compute
@@ -11,8 +11,7 @@
 #SBATCH --mem=200G
 #SBATCH --job-name="geo-coverage"
 
-# Change this to your email address
-#SBATCH --mail-user=you@buffalo.edu
+#SBATCH --mail-user=$1
 #SBATCH --mail-type=all
 
 module load gcc python
@@ -21,6 +20,6 @@ module load gcc python
 source venv/bin/activate
 
 # Set the scenario and antenna pattern to match your desired input configuration
-scenario="fruit-belt"
-pattern="AW2032"
+scenario=$2
+pattern=$3
 python gc.py -s $scenario -j64 -p $pattern
