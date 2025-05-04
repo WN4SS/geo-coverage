@@ -1,0 +1,14 @@
+#+title: Geographical Coverage Heatmap Tool
+
+* Installation
+- On your CCR login node, clone the repository with =git clone https://github.com/WN4SS/geo-coverage gc=
+- Enter the directory with =cd gc=
+- Run =./setup_venv.sh= to create a virtual environment and install all dependencies
+* Usage
+- On your host machine, use the GeoJSON creator tool to create a scenario
+- With =scp= or the https://ondemand.ccr.buffalo.edu web interface, upload the created GeoJSON to the scenarios folder
+- On your CCR login node, navigate to =~/gc= and run =sbatch geo-coverage.sbatch <your email> <scenario> <antenna pattern>=
+- The =<scenario>= parameter should be the name of your scenario, not including the =.geojson= extension (e.g. buffalo.geojson -> buffalo)
+- The =<antenna pattern>= parameter should be the name of the folder in =patterns/=  which corresponds with the intended antenna (e.g. AW2033)
+- You will receive an email notifying you that your job is complete
+- Once the job is complete, a PNG of the generated heatmap will have been created in the directory in which the script was run
