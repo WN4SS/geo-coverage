@@ -1,5 +1,7 @@
 #+title: Geographical Coverage Heatmap Tool
 
+[[./canandaigua.png]]
+
 * Installation
 - On your CCR login node, clone the repository with =git clone https://github.com/WN4SS/geo-coverage gc=
 - Enter the directory with =cd gc=
