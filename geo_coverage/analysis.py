@@ -132,7 +132,7 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
     antennas = get_antennas(gdf, pattern_h, pattern_v)
     print('--- Generating coverage points...')
     rx_points = get_rx_points(gdf.iloc[0]['geometry'], granularity)
-    profiles_path = os.path.join('profiles' 'profiles-' + scenario + '.pkl')
+    profiles_path = os.path.join('profiles', scenario + '.pkl')
     if not os.path.exists(profiles_path):
         if not os.path.exists('lidar'):
             os.makedirs('lidar')
@@ -143,7 +143,7 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
         if not os.path.exists:
             os.makedirs('profiles')
         with open(profiles_path, 'wb') as file:
-            pickle.dump(profiles, file)
+            profiles = pickle.dump(profiles, file)
     else:
         print('--- Loading surface profiles...')
         with open(profiles_path, 'rb') as file:
