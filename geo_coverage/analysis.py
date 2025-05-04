@@ -45,6 +45,20 @@ def get_lat_lon(point):
     x, y = transformer.transform(point.x, point.y)
     return Point(x, y)
 
+def get_coverage_bounds(coverage_area):
+    sw_bound_lat, sw_bound_lon = [float('inf')] * 2
+    ne_bound_lat, ne_bound_lon = [float('-inf')] * 2
+    for lon, lat in coverage_area.exterior.coords:
+        if lat < sw_bound_lat:
+            sw_bound_lat = lat
+        if lat > ne_bound_lat:
+            ne_bound_lat = lat
+        if lon < sw_bound_lon:
+            sw_bound_lon = lon
+        if lon > ne_bound_lon:
+            ne_bound_lon = lon
+    return [Point(sw_bound_lon, sw_bound_lat), Point(ne_bound_lon, ne_bound_lat)]
+
 def get_rx_points(coverage_area, granularity):
     """
     Generate a grid of coverage points within the supplied area
@@ -113,19 +127,21 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
     """
     print('--- Initializing scenario...')
     gdf = gpd.read_file(os.path.join('scenarios', scenario + '.geojson'))
-    pattern_h = load_pattern(os.path.join('patterns', 'pattern', 'horizontal.pat'))
-    pattern_v = load_pattern(os.path.join('patterns', 'pattern', 'vectical.pat'))
+    pattern_h = load_pattern(os.path.join('patterns', pattern, 'horizontal.pat'))
+    pattern_v = load_pattern(os.path.join('patterns', pattern, 'vertical.pat'))
     antennas = get_antennas(gdf, pattern_h, pattern_v)
     print('--- Generating coverage points...')
-    get_rx_points(gdf.iloc[0]['geometry'], granularity)
+    rx_points = get_rx_points(gdf.iloc[0]['geometry'], granularity)
     profiles_path = os.path.join('profiles' 'profiles-' + scenario + '.pkl')
     if not os.path.exists(profiles_path):
-        os.makedirs('lidar')
+        if not os.path.exists('lidar'):
+            os.makedirs('lidar')
         lpcs = load_all_lpcs(gdf, 'lidar')
         print('--- Computing surface profiles...')
         profiles = get_profiles_mc(num_cores, lpcs, rx_points, antennas[0].pos, prof_granularity)
         print('--- Storing precomputed profiles...')
-        os.makedirs('profiles')
+        if not os.exists:
+            os.makedirs('profiles')
         with open(profiles_path, 'wb') as file:
             pickle.dump(profiles, file)
     else:
@@ -133,4 +149,4 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
         with open(profiles_path, 'rb') as file:
             pickle.load(file)
     print('--- Calculating estimated coverage map...')
-    return combined_coverage_map(antennas, rx_points, profiles)
+    return combined_coverage_map(antennas, rx_points, profiles), antennas, gdf

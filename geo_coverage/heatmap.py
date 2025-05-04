@@ -1,4 +1,4 @@
-from .analysis import get_projection
+from .analysis import get_projection, get_coverage_bounds
 
 from shapely.geometry import Point
 
@@ -17,19 +17,6 @@ def plot_antenna(antenna, ax):
     ax.annotate('', xytext=(start_x, start_y), xy=(end_x, end_y),
                 arrowprops=dict(arrowstyle='->', color='darkblue', lw=2))
 
-def get_coverage_bounds(coverage_area):
-    sw_bound_lat, sw_bound_lon = [float('inf')] * 2
-    ne_bound_lat, ne_bound_lon = [float('-inf')] * 2
-    for lon, lat in coverage_area.exterior.coords:
-        if lat < sw_bound_lat:
-            sw_bound_lat = lat
-        if lat > ne_bound_lat:
-            ne_bound_lat = lat
-        if lon < sw_bound_lon:
-            sw_bound_lon = lon
-        if lon > ne_bound_lon:
-            ne_bound_lon = lon
-    return [Point(sw_bound_lon, sw_bound_lat), Point(ne_bound_lon, ne_bound_lat)]
 
 def plot_coverage_map(coverage_map, coverage_area, antennas, title):
     """
