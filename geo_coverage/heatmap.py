@@ -6,6 +6,7 @@ import math
 import matplotlib
 import matplotlib.pyplot as plt
 import contextily as ctx
+import geopandas as gpd
 
 def plot_antenna(antenna, ax):
     proj = get_projection(antenna.pos)
