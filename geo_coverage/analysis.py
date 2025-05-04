@@ -140,7 +140,7 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
         print('--- Computing surface profiles...')
         profiles = get_profiles_mc(num_cores, lpcs, rx_points, antennas[0].pos, prof_granularity)
         print('--- Storing precomputed profiles...')
-        if not os.exists:
+        if not os.path.exists:
             os.makedirs('profiles')
         with open(profiles_path, 'wb') as file:
             pickle.dump(profiles, file)
