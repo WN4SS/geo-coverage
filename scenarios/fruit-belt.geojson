@@ -46,7 +46,7 @@
         "frequency": 3560,
         "Ptx": 47,
         "Gtx": 19.5,
-        "height": 1
+        "height": 30
       },
       "geometry": {
         "type": "Point",
@@ -64,7 +64,7 @@
         "frequency": 3640,
         "Ptx": 47,
         "Gtx": 19.5,
-        "height": 1
+        "height": 30
       },
       "geometry": {
         "type": "Point",
@@ -82,7 +82,7 @@
         "frequency": 3560,
         "Ptx": 47,
         "Gtx": 19.5,
-        "height": 1
+        "height": 30
       },
       "geometry": {
         "type": "Point",
@@ -100,7 +100,7 @@
         "frequency": 3640,
         "Ptx": 47,
         "Gtx": 19.5,
-        "height": 1
+        "height": 30
       },
       "geometry": {
         "type": "Point",
