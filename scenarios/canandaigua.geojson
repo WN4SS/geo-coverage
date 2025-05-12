@@ -46,7 +46,7 @@
         "frequency": 3560,
         "Ptx": 30,
         "Gtx": 18,
-        "height":
+        "height": 30.48
       },
       "geometry": {
         "type": "Point",
