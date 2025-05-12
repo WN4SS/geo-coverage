@@ -1,6 +1,7 @@
 from .antenna import Antenna, load_pattern
 from .pathloss import rsrp
-from .surface_profile import make_profile, load_all_lpcs
+from .elevation import load_all_lpcs, make_profile
+from .elevation import load_all_topos, get_base_elevation
 
 from shapely.geometry import Point
 from pyproj import Transformer
@@ -12,18 +13,20 @@ import pickle
 import multiprocessing
 import os
 
-def get_antennas(gdf, pattern_h, pattern_v):
+def get_antennas(gdf, pattern_h, pattern_v, topos):
     """
     Load the antennas defined in the supplied GeoJSON into a list of antenna objects
     """
     antennas = []
     for i in range(1, len(gdf)):
+        pos = gdf.iloc[i]['geometry']
+        base_elevation = get_base_elevation(topos, pos)
         antenna = Antenna(
             gdf.iloc[i]['frequency'],
             gdf.iloc[i]['Ptx'],
-            gdf.iloc[i]['geometry'],
-            gdf.iloc[i]['height'],
-            gdf.iloc[i]['azimuth'], 1,
+            pos,
+            gdf.iloc[i]['height'] + base_elevation,
+            gdf.iloc[i]['azimuth'], 5,
             pattern_h, pattern_v
         )
         antennas.append(antenna)
@@ -95,23 +98,29 @@ def get_profiles_mc(num_cores, lpcs, rx_points, pos, granularity):
         segments = pool.starmap(get_profiles, arglist)
     return list(itertools.chain.from_iterable(segments))
 
-def get_coverage_map(antenna, rx_points, profiles):
+def get_base_elevations(topos, rx_points):
+    """
+    Get the base elevation excluding buildings at each Rx point
+    """
+    return list(map(lambda point: get_base_elevation(topos, point), rx_points))
+
+def get_coverage_map(antenna, rx_points, profiles, base_elevations):
     """
     Calculate the estimated RSRP for each Rx point supplied
     """
     rsrps = []
-    for point, profile in zip(rx_points, profiles):
-        point_rsrp = rsrp(antenna, point, profile)
+    for point, profile, height in zip(rx_points, profiles, base_elevations):
+        point_rsrp = rsrp(antenna, point, height, profile)
         rsrps.append([point, point_rsrp])
     return rsrps
 
-def combined_coverage_map(antennas, rx_points, profiles):
+def combined_coverage_map(antennas, rx_points, profiles, base_elevations):
     """
     Combine multiple coverage maps so that each point is associated with the best RSRP
     """
     maps = []
     for antenna in antennas:
-        maps.append(get_coverage_map(antenna, rx_points, profiles))
+        maps.append(get_coverage_map(antenna, rx_points, profiles, base_elevations))
     best_rsrps = []
     for index in range(len(maps[0]) - 1):
         best_rsrp = [None, float('-inf')]
@@ -127,11 +136,16 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
     """
     print('--- Initializing scenario...')
     gdf = gpd.read_file(os.path.join('scenarios', scenario + '.geojson'))
-    pattern_h = load_pattern(os.path.join('patterns', pattern, 'horizontal.pat'))
-    pattern_v = load_pattern(os.path.join('patterns', pattern, 'vertical.pat'))
-    antennas = get_antennas(gdf, pattern_h, pattern_v)
     print('--- Generating coverage points...')
     rx_points = get_rx_points(gdf.iloc[0]['geometry'], granularity)
+    print('--- Loading antenna patterns...')
+    pattern_h = load_pattern(os.path.join('patterns', pattern, 'horizontal.pat'))
+    pattern_v = load_pattern(os.path.join('patterns', pattern, 'vertical.pat'))
+    print('--- Downloading topographic maps from the USGS database...')
+    topos = load_all_topos(gdf, 'topo')
+    print('--- Loading base elevations...')
+    base_elevations = get_base_elevations(topos, rx_points)
+    antennas = get_antennas(gdf, pattern_h, pattern_v, topos)
     profiles_path = os.path.join('profiles', scenario + '.pkl')
     if not os.path.exists(profiles_path):
         if not os.path.exists('lidar'):
@@ -140,13 +154,13 @@ def run_analysis(scenario, pattern, granularity, prof_granularity=2, num_cores=1
         print('--- Computing surface profiles...')
         profiles = get_profiles_mc(num_cores, lpcs, rx_points, antennas[0].pos, prof_granularity)
         print('--- Storing precomputed profiles...')
-        if not os.path.exists:
+        if not os.path.exists('profiles'):
             os.makedirs('profiles')
         with open(profiles_path, 'wb') as file:
-            profiles = pickle.dump(profiles, file)
+            pickle.dump(profiles, file)
     else:
         print('--- Loading surface profiles...')
         with open(profiles_path, 'rb') as file:
-            pickle.load(file)
+            profiles = pickle.load(file)
     print('--- Calculating estimated coverage map...')
-    return combined_coverage_map(antennas, rx_points, profiles), antennas, gdf
+    return combined_coverage_map(antennas, rx_points, profiles, base_elevations), antennas, gdf

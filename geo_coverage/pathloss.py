@@ -72,16 +72,16 @@ def corrected_loss(l_uc, d_p):
     """
     return l_uc + (1 - math.exp(-l_uc / 6)) * (10 + 0.02 * d_p)
 
-def bullington_loss(profile, tx_height_rel, rx_height_rel, f_mhz):
+def bullington_loss(profile, tx_height, rx_height, f_mhz):
     """
     Calculate the diffraction loss in dB with the Bullington model
     """
     if len(profile) < 3:
         return 0
-    wavelength = 3E8 / (1E6 * f_mhz) 
+    wavelength = 3E8 / (1E6 * f_mhz)
     d_p = profile[len(profile) - 1][0]
-    h_ts = profile[0][1] + tx_height_rel
-    h_rs = profile[len(profile) - 1][1] + rx_height_rel
+    h_ts = tx_height
+    h_rs = rx_height
     s_tm = tx_visual_horizon(profile, h_ts, d_p)
     s_tr = straight_line_path(h_ts, h_rs, d_p)
     if s_tm <= s_tr:
@@ -96,18 +96,16 @@ def free_space_loss(distance, f_mhz):
     Calculate the free space path loss over the given distance
     """
     return 20 * math.log10(4 * math.pi * distance * ((f_mhz * 1E6) / 3E8))
-   
-def rsrp(antenna, rx_pos, profile):
+
+def rsrp(antenna, rx_pos, rx_height, profile):
     """
     Estimate path loss from an antenna given Rx position, and path profile
     """
+    power = antenna.power(rx_pos, rx_height)
+    rx_distance = profile[len(profile) - 1][0] * 1000
+    lf = free_space_loss(rx_distance, antenna.f_mhz)
     if len(profile) > 1:
-        tx_height = profile[0][1] + antenna.height_rel
-        rx_height = profile[len(profile) - 1][1]
-        power = antenna.power(tx_height, rx_pos, rx_height)
-        rx_distance = profile[len(profile) - 1][0] * 1000
-        lb = bullington_loss(profile, antenna.height_rel, 0, antenna.f_mhz)
-        lf = free_space_loss(rx_distance, antenna.f_mhz)
+        lb = bullington_loss(profile, antenna.height, 0, antenna.f_mhz)
         return power - (lb + lf)
     else:
-        return antenna.tx_power
+        return power - lf

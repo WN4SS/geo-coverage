@@ -5,10 +5,13 @@ import requests
 import warnings
 import geopandas as gpd
 import laspy
+import rasterio
+import rasterio.warp
+import rasterio.transform
 import numpy as np
 
 from shapely.geometry import Point, Polygon
-from scipy.spatial import cKDTree 
+from scipy.spatial import cKDTree
 from pyproj import Transformer
 
 # This warning can be ignored since the insecure requests are only being made to a public API
@@ -16,6 +19,38 @@ warnings.simplefilter(
     'ignore',
     requests.packages.urllib3.exceptions.InsecureRequestWarning
 )
+
+def get_poly_str(gdf):
+    """
+    Get textual description of the polygon bounds to be passed to the API
+    """
+    bounding_poly = gdf.iloc[0]['geometry']
+    poly_str = ''
+    for point in bounding_poly.exterior.coords:
+        point_str = ',' + str(point[0]) + ' ' + str(point[1])
+        poly_str = poly_str + point_str
+    return poly_str[1:]
+
+def download_file(url, output_dir):
+    """
+    Download a file from the specified URL
+    """
+    output_path = os.path.join(output_dir, re.search(r'([^/]+)$', url).group(1))
+    response = requests.get(url, verify=False)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    with open(output_path, 'wb') as file:
+        file.write(response.content)
+
+def download_files(urls, output_dir):
+    """
+    Download the file from each URL in the list
+    """
+    for i, url in enumerate(urls):
+        print(f'\tDownloading file {i + 1} of {len(urls)}...')
+        download_file(url, output_dir)
+    if len(urls) == 0:
+        print('\tAll required scans are already present.')
 
 class LidarPointCloud:
     def __init__(self, path):
@@ -43,48 +78,19 @@ class LidarPointCloud:
         index = self.xy_tree.query([x, y])[1]
         return self.elevations[index]
 
-def get_urls(gdf):
+def get_lidar_urls(gdf):
     """
     Get the download link to each LiDAR scan in the coverage area
     """
-    bounding_poly = gdf.iloc[0]['geometry']
-    poly_str = ''
-    for point in bounding_poly.exterior.coords:
-        point_str = ',' + str(point[0]) + ' ' + str(point[1])
-        poly_str = poly_str + point_str
-    poly_str = poly_str[1:]
-
+    poly_str = get_poly_str(gdf)
     url = 'https://tnmaccess.nationalmap.gov/api/v1/products'
     params = {'polygon': poly_str, 'datasets': 'Lidar Point Cloud (LPC)'}
     response = requests.get(url, params=params).json()
-
     urls = []
     for item in response['items']:
         urls.append(item['downloadURL'])
     return urls
 
-def download_scan(url, output_dir):
-    """
-    Download a LiDAR scan from the specified URL
-    """
-    output_dir += '' if output_dir[len(output_dir) - 1] == '/' else '/'
-    output_path = output_dir + re.search(r'([^/]+)$', url).group(1)
-
-    response = requests.get(url, verify=False)
-    with open(output_path, 'wb') as file:
-        file.write(response.content)
-    return output_path
-
-def download_scans(urls, output_dir):
-    """
-    Download the LiDAR scan from each URL in the list
-    """
-    print('--- Retrieving LiDAR scans from the USGS National Map database...')
-    for i, url in enumerate(urls):
-        print(f'\tDownloading file {i + 1} of {len(urls)}...')
-        download_scan(url, output_dir)
-    if len(urls) == 0:
-        print('\tAll required scans are already present.')
 
 def parse_lpcs(laz_paths):
     """
@@ -101,8 +107,8 @@ def load_all_lpcs(gdf, output_dir):
     """
     Download all bounded .laz files and parse them as LidarPointCloud objects
     """
-    urls = get_urls(gdf)
-    output_dir += '' if output_dir[len(output_dir) - 1] == '/' else '/'
+    print('--- Downloading LiDAR scans from the USGS database...')
+    urls = get_lidar_urls(gdf)
     missing_urls = []
     laz_paths = []
     for url in urls:
@@ -110,10 +116,10 @@ def load_all_lpcs(gdf, output_dir):
         if not os.path.exists(path):
             missing_urls.append(url)
         laz_paths.append(path)
-    download_scans(missing_urls, output_dir)
+    download_files(missing_urls, output_dir)
     return parse_lpcs(laz_paths)
 
-def get_elevation(lpcs, pos, proj=True):
+def get_lpc_elevation(lpcs, pos, proj=True):
     """
     Get the elevation at the latitude/longitude pair from the appropriate LPC
     """
@@ -124,7 +130,7 @@ def get_elevation(lpcs, pos, proj=True):
     else:
         x_pos, y_pos = x, y
     for lpc in lpcs:
-        if lpc.bounding_poly.buffer(10).intersects(Point(x_pos, y_pos)):
+        if lpc.bounding_poly.buffer(1).intersects(Point(x_pos, y_pos)):
             return lpc.get_elevation(x_pos, y_pos)
 
 def make_profile(lpcs, tx_pos, rx_pos, granularity):
@@ -144,7 +150,58 @@ def make_profile(lpcs, tx_pos, rx_pos, granularity):
     y_coords = np.linspace(tx_y, rx_y, num=num_points)
     distances = np.linspace(0, rx_distance, num=num_points)
     profile = list(map(
-        lambda point: [point[2], get_elevation(lpcs, Point(point[0], point[1]))],
+        lambda point: [point[2], get_lpc_elevation(lpcs, Point(point[0], point[1]))],
         list(zip(x_coords[1:], y_coords[1:], distances[1:]))
     ))
     return profile
+
+class TopoMap:
+    def __init__(self, path):
+        self.topo = rasterio.open(path)
+        self.transformer = rasterio.transform.AffineTransformer(self.topo.transform)
+        bounds = self.topo.bounds
+        minx, maxx, miny, maxy = rasterio.warp.transform_bounds(self.topo.crs.to_epsg(), 4326, *bounds)
+        self.bounding_poly = Polygon([(minx, miny), (minx, maxy), (maxx, maxy), (maxx, miny)])
+
+    def get_elevation(self, point):
+        """
+        Find the elevation at the defined point closest to the one provided
+        """
+        row, col = self.transformer.rowcol(point.x, point.y)
+        return self.topo.read(1)[row, col]
+
+def get_topo_urls(gdf):
+    """
+    Get the download link to each 10m topographic map in the coverage area
+    """
+    poly_str = get_poly_str(gdf)
+    url = 'https://tnmaccess.nationalmap.gov/api/v1/products'
+    params = {'polygon': poly_str, 'datasets': 'National Elevation Dataset (NED) 1/3 arc-second'}
+    response = requests.get(url, params=params).json()
+    urls = []
+    for item in response['items']:
+        urls.append(item['downloadURL'])
+    return urls
+
+def load_all_topos(gdf, output_dir):
+    """
+    Ensure that all necessary topographical maps are present in the expected directory
+    """
+    urls = get_topo_urls(gdf)
+    missing_urls = []
+    topo_paths = []
+    for url in urls:
+        path = os.path.join(output_dir, re.search(r'([^/]+)$', url).group(1))
+        if not os.path.exists(path):
+            missing_urls.append(url)
+        topo_paths.append(path)
+    download_files(missing_urls, output_dir)
+    return list(map(lambda path: TopoMap(path), topo_paths))
+
+def get_base_elevation(topos, point):
+    """
+    Get the base elevation (not including building height), at the given point
+    """
+    for topo in topos:
+        if topo.bounding_poly.buffer(1).intersects(point):
+            return topo.get_elevation(point)
